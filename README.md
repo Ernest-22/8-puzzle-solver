@@ -1,5 +1,4 @@
-# 8-puzzle-solver
-8-Puzzle Solver: Visualizes and compares A, DFS, IDS, and IDDFS with path cost, time, and nodes expanded
+<img width="1884" height="981" alt="image" src="https://github.com/user-attachments/assets/804e2122-f0d0-44af-b031-72a81689f20b" />
 
 # 🧩 8-Puzzle Solver
 
@@ -26,7 +25,8 @@ The app allows users to shuffle, solve, and compare multiple search algorithms w
 ---
 
 ## 📸 Preview
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/cb512e9f-cb7d-4e9c-a0e4-9334901ff337" />
+<img width="1884" height="981" alt="image" src="https://github.com/user-attachments/assets/d1c84af3-c09b-44dc-8ab3-922e57572d65" />
+
 8-puzzle-solver/
 │── static/          # CSS & JS files
 │── templates/       # HTML files
