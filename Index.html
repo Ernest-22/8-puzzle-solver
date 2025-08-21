@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8-Puzzle Solver</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+
+</head>
+</body>
+        <h1>8-Puzzle Solver</h1>
+    
+    <div id="puzzle-container"></div>
+<h2>SOLVE WITH THE FOLLOWING ALGORITHMS</h2>
+    <div class="controls">
+        <button id="shuffle-btn">Shuffle Puzzle</button>
+        <button id="ibs-btn" data-tooltip="Solve with IDS">Iterative Broadening Search</button>
+        <button id="dfs-btn" data-tooltip="Solve with DFS">Depth-First Search</button>
+        <button id="astar-btn" data-tooltip="Solve with A*">A* Search</button>
+        <button id="iddfs-btn" data-tooltip="Solve with IDDFS">Iterative Deepening DFS</button>
+        <button id="cancel-btn">Cancel</button>
+        <button id="compare-btn">Compare Algorithms</button>
+        <label for="custom-state" class="input-label">Enter Custom State:</label>
+        <input type="text" id="custom-state" placeholder="1,2,3,4,5,6,7,8,0" />
+        <button id="set-custom-state-btn">Set Custom State</button>
+        <button id="step-solve-btn">Step-by-Step Solve</button>
+        
+    </div>
+    <h2> GOAL </h2>
+    <div class="matrix">
+        <div class="row">
+            <div class="cell">1</div>
+            <div class="cell">2</div>
+            <div class="cell">3</div>
+        </div>
+        <div class="row">
+            <div class="cell">4</div>
+            <div class="cell">5</div>
+            <div class="cell">6</div>
+        </div>
+        <div class="row">
+            <div class="cell">7</div>
+            <div class="cell">8</div>
+            <div class="cell empty"></div> <!-- Empty cell for the puzzle -->
+        </div>
+    </div>
+
+    
+    <div class="results">
+        <h2>Results:</h2>
+        <div id="solution-container"></div>
+        <div class="results-container" id="results-container">
+        <p id="time-taken"></p>
+        <p id="nodes-expanded"></p>
+        <p id="solution-length"></p>
+    </div>
+    <div id="results" class="results">
+        <h2>Algorithm Comparison Results</h2>
+        <div id="times">
+            <!-- Times for each algorithm will be inserted here -->
+        </div>
+        <div id="fastest-algorithm">
+            <!-- Fastest algorithm result will be inserted here -->
+        </div>
+    </div>
+    
+    <div class="error" id="error-message" style="display: none;"></div>
+    <div id="loading" style="display:none;">
+        <div class="spinner"></div>
+    </div>
+    
+    <script>
+        const puzzleContainer = document.getElementById('puzzle-container');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+        const ibsBtn = document.getElementById('ibs-btn');
+        const dfsBtn = document.getElementById('dfs-btn');
+        const astarBtn = document.getElementById('astar-btn');
+        const iddfsBtn = document.getElementById('iddfs-btn');
+        const customStateInput = document.getElementById('custom-state');
+        const setCustomStateBtn = document.getElementById('set-custom-state-btn');
+        const stepSolveBtn = document.getElementById('step-solve-btn');
+        const solutionContainer = document.getElementById('solution-container');
+        const timeTakenText = document.getElementById('time-taken');
+        const nodesExpandedText = document.getElementById('nodes-expanded');
+        const solutionLengthText = document.getElementById('solution-length');
+        const compareBtn = document.getElementById('compare-btn');
+        const resultsDiv = document.querySelector('.results');
+        const errorMessageDiv = document.getElementById('error-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+    
+        let initialState = [
+            [1, 2, 3],
+            [4, 5, 6],
+            [0, 7, 8]
+        ];
+
+       
+        
+
+        // Render the puzzle board
+        function renderPuzzle() {
+            puzzleContainer.innerHTML = '';
+            initialState.forEach(row => {
+                row.forEach(cell => {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'puzzle-cell' + (cell === 0 ? ' empty' : '');
+                    cellDiv.innerText = cell === 0 ? '' : cell;
+                    cellDiv.onclick = () => moveTile(cell); // Add click event for moving tiles
+                    puzzleContainer.appendChild(cellDiv);
+                });
+            });
+        }
+        
+        
+
+        function findBlank(state) {
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    if (state[i][j] === 0) {
+                        return { row: i, col: j };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function isMovable(row, col) {
+            const blank = findBlank(initialState);
+            const diffRow = Math.abs(blank.row - row);
+            const diffCol = Math.abs(blank.col - col);
+            return (diffRow + diffCol === 1);
+        }
+
+        function moveTile(value) {
+            const index = initialState.flat().indexOf(value);
+            const row = Math.floor(index / 3);
+            const col = index % 3;
+
+            if (isMovable(row, col)) {
+                const blank = findBlank(initialState);
+                [initialState[row][col], initialState[blank.row][blank.col]] = [initialState[blank.row][blank.col], initialState[row][col]];
+                renderPuzzle();
+            }
+        }
+        function revealMatrix() {
+            const cells = document.querySelectorAll('.matrix .cell');
+            cells.forEach((cell, index) => {
+                // Delay each cell's reveal by index * 200ms
+                cell.style.setProperty('--delay', `${index * 200}ms`);
+            });
+        }
+        
+        // Call revealMatrix when the solution is displayed
+        revealMatrix();
+        
+// Shuffle Puzzle
+async function shufflePuzzle() {
+    const response = await fetch('/shuffle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ initial_state: initialState })
+    });
+    const data = await response.json();
+    if (response.ok) {
+        initialState = data.shuffled_state;
+        renderPuzzle(); // Update to reflect the shuffled state
+        updateOutput('Puzzle shuffled!');
+    } else {
+        updateOutput(data.error);
+    };
+}
+
+
+
+        // Validate custom state
+        function validateCustomState(state) {
+            if (state.length !== 9 || !state.every(num => num >= 0 && num <= 8)) {
+                showError('Invalid state. Ensure there are exactly 9 numbers between 0 and 8.');
+                return false;
+            }
+            return true;
+        }
+
+        function showError(message) {
+            errorMessageDiv.innerText = message;
+            errorMessageDiv.style.display = 'block';
+            setTimeout(() => errorMessageDiv.style.display = 'none', 5000);
+        }
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        // Solve puzzle with given algorithm
+        async function solvePuzzle(algorithm) {
+            console.log('Showing loading indicator');
+            showLoading(); // Show the loading spinner
+            try {
+                const response = await fetch(`/solve/${algorithm}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ initial_state: initialState })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    displaySolution(data);
+                } else {
+                    showError('Error solving puzzle with ' + algorithm);
+                }
+            } catch (error) {
+                showError('An unexpected error occurred: ' + error.message);
+            }finally {
+                console.log('Hiding loading indicator'); // Debugging log
+                hideLoading(); // Hide the loading spinner
+            }
+        }
+
+        let previousState = []; // Initialize to keep track of the previous state
+
+        function displaySolution(data) {
+            solutionContainer.innerHTML = ''; // Clear previous solution
+            const solution = data.solution;
+        
+            // Iterate over each state in the solution
+            solution.forEach(state => {
+                const matrixDiv = document.createElement('div');
+                matrixDiv.classList.add('matrix');
+        
+                // Compare current state with previous state to highlight changed tiles
+                state.forEach((row, rowIndex) => {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.classList.add('row');
+        
+                    row.forEach((cell, colIndex) => {
+                        const cellDiv = document.createElement('div');
+                        cellDiv.classList.add('cell');
+                        cellDiv.innerText = cell === 0 ? '' : cell; // Display 0 as empty
+        
+                        // Highlight changed tiles
+                        if (previousState[rowIndex] && previousState[rowIndex][colIndex] !== cell) {
+                            cellDiv.classList.add('changed'); // Add the 'changed' class
+                        }
+        
+                        rowDiv.appendChild(cellDiv);
+                    });
+        
+                    matrixDiv.appendChild(rowDiv);
+                });
+
+        
+                solutionContainer.appendChild(matrixDiv); // Add the current matrix to the solution container
+                scrollToResults();
+            });
+        
+            // Update result display
+            timeTakenText.innerText = `Time Taken: ${data.time_taken.toFixed(2)} miliseconds`;
+            nodesExpandedText.innerText = `Nodes Expanded: ${data.nodes_expanded}`;
+            solutionLengthText.innerText = `Solution Length: ${data.solution.length}`;
+        
+            resultsDiv.style.display = 'block'; // Show results
+        
+            // Update previous state for the next iteration
+            previousState = JSON.parse(JSON.stringify(state)); // Deep copy of the current state
+        }
+         
+        let cancelRequested = false;
+
+document.getElementById('cancel-btn').addEventListener('click', () => {
+    cancelRequested = true;
+    showError('Comparison cancelled by the user.');
+});
+function displayResults(results) {
+    const resultsContainer = document.getElementById('results-container');
+    resultsContainer.innerHTML = ''; // Clear previous results
+
+    results.forEach((result, index) => {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result'; // Apply result styles
+        resultDiv.textContent = result; // Set text content
+        resultsContainer.appendChild(resultDiv); // Add result to container
+    });
+
+        // Add fastest algorithm reveal at the end
+        const fastestContainer = document.createElement('div');
+        fastestContainer.className = 'fastest-algorithm'; // Apply animation for fastest
+        fastestContainer.innerHTML = `
+            <h3>The fastest algorithm is: <span style="color: green;">${results.fastestAlgorithm}</span></h3>
+            <p>Time taken: ${results.fastestTime} ms</p>
+        `;
+        resultsContainer.appendChild(fastestContainer); // Add fastest result after a delay
+        scrollToResults();
+    }
+
+
+        // Compare algorithms
+        async function compareAlgorithms() {
+            showLoading(); // Show the loading spinner
+            resultsDiv.style.display = 'none'; // Hide previous results
+        
+            const algorithms = ['ibs', 'dfs', 'astar', 'iddfs']; // Updated to ensure consistent algorithm names
+            const times = {}; // Object to store times for each algorithm
+        
+            for (const algorithm of algorithms) {
+                try {
+                    const startTime = performance.now(); // Start the timer for the algorithm
+        
+                    // Solve each algorithm with a time limit (e.g., 10 seconds per algorithm)
+                    const result = await solveWithTimeout(algorithm, 10000); // 10-second timeout
+        
+                    const endTime = performance.now(); // End the timer for the algorithm
+                    times[algorithm] = (endTime - startTime).toFixed(2); // Store the time taken (in ms)
+        
+                    if (result) {
+                        displaySolution(result); // Display the solution if available
+                    } else {
+                        showError(`${algorithm.toUpperCase()} took too long to solve.`);
+                    }
+                } catch (error) {
+                    showError(`An error occurred while solving with ${algorithm.toUpperCase()}: ${error.message}`);
+                }
+        
+                await sleep(100); // Wait 100ms to allow the browser to stay responsive
+            }
+        
+            // Display the comparison results after all algorithms have been processed
+            const fastestAlgorithm = Object.keys(times).reduce((a, b) => times[a] < times[b] ? a : b);
+            const fastestTime = times[fastestAlgorithm];
+        
+            if (times['astar'] !== undefined && times['ibs'] !== undefined && times['dfs'] !== undefined && times['iddfs'] !== undefined) {
+                const timesContainer = document.getElementById('times');
+                timesContainer.innerHTML = `
+                    <p><strong>A*:</strong> ${times['astar']} ms</p>
+                    <p><strong>IDS:</strong> ${times['ibs']} ms</p> <!-- Fixed to use ibs -->
+                    <p><strong>DFS:</strong> ${times['dfs']} ms</p>
+                    <p><strong>IDDFS:</strong> ${times['iddfs']} ms</p>
+                `;
+        
+                const fastestContainer = document.getElementById('fastest-algorithm');
+                fastestContainer.innerHTML = `
+                    <h3>The fastest algorithm is: <span style="color: green;">${fastestAlgorithm.toUpperCase()}</span></h3>
+                    <p>Time taken: ${fastestTime} ms</p>
+                `;
+            } else {
+                console.error('Error: One or more algorithm times are missing');
+            }
+        
+            hideLoading(); // Hide loading indicator after all comparisons
+            resultsDiv.style.display = 'block'; // Show the results
+        }
+        
+        
+        
+        
+        // Helper function to add a timeout
+        async function solveWithTimeout(algorithm, timeout) {
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => resolve(null), timeout); // Return null if the timeout is reached
+        
+                solvePuzzle(algorithm).then(result => {
+                    clearTimeout(timer); // Clear the timeout if the algorithm finishes
+                    resolve(result);
+                }).catch(error => {
+                    clearTimeout(timer);
+                    reject(error); // Reject if an error occurs during solving
+                });
+            });
+        }
+        
+        // Helper function to pause execution
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        function scrollToResults() {
+            const resultsSection = document.querySelector('.results-container');
+            if (resultsSection) {
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        // Call this function after the algorithm finishes solving
+        function onSolveComplete() {
+            // Any logic that happens after solving
+            scrollToResults(); // Scroll to the results
+        }
+        
+        // Event listeners
+        shuffleBtn.addEventListener('click', shufflePuzzle);
+        ibsBtn.addEventListener('click', () => solvePuzzle('ibs'));
+        dfsBtn.addEventListener('click', () => solvePuzzle('dfs'));
+        astarBtn.addEventListener('click', () => solvePuzzle('astar'));
+        iddfsBtn.addEventListener('click', () => solvePuzzle('iddfs'));
+        compareBtn.addEventListener('click', compareAlgorithms);
+
+        setCustomStateBtn.addEventListener('click', () => {
+            const state = customStateInput.value.split(',').map(Number);
+            if (validateCustomState(state)) {
+                initialState = [
+                    state.slice(0, 3),
+                    state.slice(3, 6),
+                    state.slice(6, 9)
+                ];
+                renderPuzzle();
+                errorMessageDiv.style.display = 'none'; // Clear previous errors
+            }
+        });
+
+        // Initialize the puzzle
+        renderPuzzle();
+
+    </script>
+</body>
+</html>
